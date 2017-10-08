@@ -63,8 +63,10 @@ struct TPacket
 		iss >> this->MessageType;
 		
 		//iss >> this->MessageContent;
+		
 		std::string _tempMessageBuffer;
 		getline(iss, _tempMessageBuffer);
+		_tempMessageBuffer.erase(_tempMessageBuffer.begin()); //Get rid of 'space' at start of message
 		strcpy_s(MessageContent, _tempMessageBuffer.length() + 1, _tempMessageBuffer.c_str());
 		
 		

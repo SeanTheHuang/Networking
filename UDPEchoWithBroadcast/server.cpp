@@ -101,7 +101,7 @@ bool CServer::AddClient(std::string _strClientName)
 	//Tell everyone a new client is coming!
 	TPacket _packet;
 	char _joinMessage[128];
-	strcpy(_joinMessage, (_clientToAdd.m_strName + " has joined the server!").c_str());
+	strcpy_s(_joinMessage, (_clientToAdd.m_strName + " has joined the server!").c_str());
 	_packet.Serialize(DATA, _joinMessage);
 
 	for (auto it = m_pConnectedClients->begin(); it != m_pConnectedClients->end(); ++it)
