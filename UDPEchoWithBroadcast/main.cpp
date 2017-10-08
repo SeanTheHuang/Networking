@@ -114,6 +114,7 @@ int main()
 				int _iMessageSize = static_cast<int>(strlen(_InputBuffer.GetString()));
 
 				//Put the message into a packet structure
+
 				TPacket _packet;
 				_packet.Serialize(DATA, const_cast<char*>(_InputBuffer.GetString())); //Hardcoded username; change to name as taken in via user input.
 				_rNetwork.GetInstance().GetNetworkEntity()->SendData(_packet.PacketData);
