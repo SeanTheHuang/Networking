@@ -22,7 +22,7 @@ enum EMessageType : unsigned char
 {
 	HANDSHAKE,
 	DATA,
-	CLIENT_MESSAGE,
+	NEW_USER,
 	KEEPALIVE,
 	COMMAND,
 	BROADCAST

@@ -14,7 +14,6 @@
 #include <thread>
 #include <chrono>
 
-
 //Local Includes
 #include "utils.h"
 #include "network.h"
@@ -102,13 +101,8 @@ bool CServer::AddClient(std::string _strClientName)
 	TPacket _packet;
 	char _joinMessage[128];
 	strcpy_s(_joinMessage, (_clientToAdd.m_strName + " has joined the server!").c_str());
-	_packet.Serialize(DATA, _joinMessage);
-
-	for (auto it = m_pConnectedClients->begin(); it != m_pConnectedClients->end(); ++it)
-	{
-		m_ClientAddress = it->second.m_ClientAddress;
-		SendData(_packet.PacketData);
-	}
+	_packet.Serialize(NEW_USER, _joinMessage);
+	SendDataToAllClients(_packet.PacketData);
 
 	return true;
 }
@@ -209,13 +203,12 @@ void CServer::ProcessData(char* _pcDataReceived)
 	}
 	case DATA:
 	{
-		_packetToSend.Serialize(DATA, _packetRecvd.MessageContent);
+		std::string name = (*m_pConnectedClients)[ToString(m_ClientAddress)].m_strName;
 
-		for (auto it = m_pConnectedClients->begin(); it != m_pConnectedClients->end(); it++)
-		{
-			m_ClientAddress = it->second.m_ClientAddress;
-			SendData(_packetToSend.PacketData);
-		}
+		char dataMessage[128];
+		strcpy_s(dataMessage, (name + "> " + _packetRecvd.MessageContent).c_str());
+		_packetToSend.Serialize(DATA, dataMessage);
+		SendDataToAllClients(_packetToSend.PacketData);
 
 		break;
 	}
@@ -238,4 +231,15 @@ void CServer::ProcessData(char* _pcDataReceived)
 CWorkQueue<char*>* CServer::GetWorkQueue()
 {
 	return m_pWorkQueue;
+}
+
+void CServer::SendDataToAllClients(char * _pcDataToSend)
+{
+	std::unique_lock<std::mutex> sendingLock(m_sendingPacketMutex);
+
+	for (auto it = m_pConnectedClients->begin(); it != m_pConnectedClients->end(); ++it)
+	{
+		m_ClientAddress = it->second.m_ClientAddress;
+		SendData(_pcDataToSend);
+	}
 }

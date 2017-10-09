@@ -365,14 +365,16 @@ void CClient::ProcessData(char* _pcDataReceived)
 	}
 	case DATA:
 	{
-		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
-		std::cout << "SERVER> " << _packetRecvd.MessageContent << std::endl;
-		break;
-	}
-	case CLIENT_MESSAGE:
-	{
+		//Get which user typed previous message
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
 		std::cout << _packetRecvd.MessageContent << std::endl;
+		break;
+	}
+	case NEW_USER:
+	{
+		//Get which user typed previous message
+		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
+		std::cout << "[ " << _packetRecvd.MessageContent << " ]" << std::endl;
 		break;
 	}
 	default:
