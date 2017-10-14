@@ -90,7 +90,7 @@ CNetwork::ShutDown()
 	if (WSACleanup() != 0)
 	{
 		_iError = WSAGetLastError();
-		//Diagnostic error messages to be added!!
+		std::cout << "SOMETHING WENT WRONG DURING SHUTDOWN" << std::endl;
 	}
 	m_bOnline = false;
 }

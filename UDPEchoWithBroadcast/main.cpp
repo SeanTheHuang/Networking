@@ -113,11 +113,8 @@ int main()
 				// we completed a message, lets send it:
 				int _iMessageSize = static_cast<int>(strlen(_InputBuffer.GetString()));
 
-				//Put the message into a packet structure
+				_pClient->ProcessClientInput(DATA, const_cast<char*>(_InputBuffer.GetString()));
 
-				TPacket _packet;
-				_packet.Serialize(DATA, const_cast<char*>(_InputBuffer.GetString())); //Hardcoded username; change to name as taken in via user input.
-				_rNetwork.GetInstance().GetNetworkEntity()->SendData(_packet.PacketData);
 				//Clear the Input Buffer
 				_InputBuffer.ClearString();
 				//Print To Screen Top
@@ -165,9 +162,8 @@ int main()
 	_ServerReceiveThread.join();
 
 	//Shut Down the Network
-	_rNetwork.ShutDown();
-	_rNetwork.DestroyInstance();
+	//_rNetwork.DestroyInstance();
+	//delete[] _pcPacketData;
 
-	delete[] _pcPacketData;
 	return 0;
 }

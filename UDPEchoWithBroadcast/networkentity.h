@@ -21,11 +21,12 @@
 enum EMessageType : unsigned char
 {
 	HANDSHAKE,
+	SERVER_LIST,
 	DATA,
-	NEW_USER,
 	KEEPALIVE,
 	COMMAND,
-	BROADCAST
+	BROADCAST,
+	QUIT
 };
 
 struct TPacket 

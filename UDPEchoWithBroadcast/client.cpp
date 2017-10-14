@@ -29,7 +29,6 @@
 //This includes
 #include "client.h"
 
-
 CClient::CClient()
 	:m_pcPacketData(0)
 	, m_pClientSocket(0)
@@ -184,16 +183,151 @@ bool CClient::Initialise()
 
 	//Send a hanshake message to the server as part of the Client's Initialization process.
 	//Step1: Create a handshake packet
-	
-	do{
+	TPacket _packet;
+	m_clientState = CLIENT_NO_STATE;
+
+	while (m_clientState != CLIENT_CONNECTED)
+	{
 		std::cout << "Please enter a username : ";
 		gets_s(_cUserName);
-	} while (_cUserName[0] == 0);
+		_packet.Serialize(HANDSHAKE, _cUserName); 
+		SendData(_packet.PacketData);
 
-	TPacket _packet;
-	_packet.Serialize(HANDSHAKE, _cUserName); 
+		m_clientState = (WaitForHandshake()) ? CLIENT_CONNECTED : CLIENT_NOT_CONNECTED;
+
+		if (m_clientState == CLIENT_NOT_CONNECTED)
+		{
+			std::cout << std::endl << "Error: Username is taken. Please choose a new username." << std::endl;
+		}
+	}
+
+	_packet.Serialize(SERVER_LIST, "");
 	SendData(_packet.PacketData);
+
+
 	return true;
+}
+
+bool CClient::WaitForHandshake()
+{
+	char bufferToRecieveData[MAX_MESSAGE_LENGTH];
+
+	//set a timer on the socket for one second
+	struct timeval timeValue;
+	timeValue.tv_sec = 1;
+	timeValue.tv_usec = 0;
+	setsockopt(m_pClientSocket->GetSocketHandle(), SOL_SOCKET, SO_RCVTIMEO,
+		(char*)&timeValue, sizeof(timeValue));
+
+	//Receive data into a local buffer
+	char _buffer[MAX_MESSAGE_LENGTH];
+	sockaddr_in _FromAddress;
+	int iSizeOfAdd = sizeof(sockaddr_in);
+	//char _pcAddress[50];
+
+	while (true)
+	{
+		// pull off the packet(s) using recvfrom()
+		int _iNumOfBytesReceived = recvfrom(				// pulls a packet from a single source...
+			this->m_pClientSocket->GetSocketHandle(),	// client-end socket being used to read from
+			_buffer,									// incoming packet to be filled
+			MAX_MESSAGE_LENGTH,							// length of incoming packet to be filled
+			0,											// flags
+			reinterpret_cast<sockaddr*>(&_FromAddress),	// address to be filled with packet source
+			&iSizeOfAdd								// size of the above address struct.
+		);
+
+		if (_iNumOfBytesReceived < 0)
+		{
+			//Error in receiving data 
+			int _iError = WSAGetLastError();
+			//std::cout << "recvfrom failed with error " << _iError;
+			if (_iError == WSAETIMEDOUT) // Socket timed out on Receive
+			{
+				m_bDoBroadcast = false; //Do not broadcast any more
+				break;
+			}
+		}
+		else if (_iNumOfBytesReceived == 0)
+		{
+			//The remote end has shutdown the connection
+		}
+		else
+		{
+			//There is valid data received.
+			strcpy_s(bufferToRecieveData, strlen(_buffer) + 1, _buffer);
+			TPacket _packet;
+			_packet.Deserialize(bufferToRecieveData);
+			 
+			if ((std::string)_packet.MessageContent == "accept")
+			{
+				return true;
+			}
+			else if ((std::string)_packet.MessageContent == "fail")
+			{
+				return false;
+			}
+			else
+			{
+				std::cout << "Unknown handshake message recieved: " << _packet.MessageContent;
+			}
+			break; //Got handshake reply
+		}
+	}//End of while loop
+
+	return false;
+}
+
+void CClient::ProcessClientInput(EMessageType messageType, char* message)
+{
+	TPacket _packet;
+
+	//Check message of string is commmand
+	if (message[0] == '\0')
+	{
+		return; //Client didn't type anything
+	}
+
+	if (message[0] == '!') //Command inputted!
+	{
+		if (message[1] != '!')
+		{
+
+			std::string command(++message); //Ignore initial '!'
+			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
+
+			if (command == "?")
+			{
+				std::cout << s_CommandList << std::endl;
+			}
+			else if (command == "q")
+			{
+				_packet.Serialize(QUIT, "");
+				SendData(_packet.PacketData);
+				m_bOnline = false;
+				CNetwork::GetInstance().ShutDown(); //Close client
+			}
+			else if (command == "a")
+			{
+				_packet.Serialize(SERVER_LIST, "");
+				SendData(_packet.PacketData);
+			}
+			else
+			{
+				std::cout << "<< Invalid command. Type !? for command list >>" << std::endl;
+			}
+
+			return;
+		}
+		else //User just wanted to type '!'
+		{
+			message = "!";
+		}
+	}
+
+	//Normal message, send to server
+	_packet.Serialize(messageType, message);
+	SendData(_packet.PacketData);
 }
 
 bool CClient::BroadcastForServers()
@@ -353,14 +487,14 @@ void CClient::ReceiveData(char* _pcBufferToReceiveData)
 
 void CClient::ProcessData(char* _pcDataReceived)
 {
-
 	TPacket _packetRecvd;
 	_packetRecvd = _packetRecvd.Deserialize(_pcDataReceived);
 	switch (_packetRecvd.MessageType)
 	{
 	case HANDSHAKE:
 	{
-		
+		std::unique_lock<std::mutex> sendingLock(m_clientMutex);
+		m_clientState = (_packetRecvd.MessageContent == "accept") ? CLIENT_CONNECTED : CLIENT_NOT_CONNECTED;
 		break;
 	}
 	case DATA:
@@ -368,13 +502,6 @@ void CClient::ProcessData(char* _pcDataReceived)
 		//Get which user typed previous message
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
 		std::cout << _packetRecvd.MessageContent << std::endl;
-		break;
-	}
-	case NEW_USER:
-	{
-		//Get which user typed previous message
-		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
-		std::cout << "[ " << _packetRecvd.MessageContent << " ]" << std::endl;
 		break;
 	}
 	default:

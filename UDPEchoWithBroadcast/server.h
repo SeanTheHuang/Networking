@@ -58,7 +58,7 @@ public:
 	CWorkQueue<char*>* GetWorkQueue();
 
 	void SendDataToAllClients(char* _pcDataToSend);
-	
+
 private:
 	bool AddClient(std::string _strClientName);
 

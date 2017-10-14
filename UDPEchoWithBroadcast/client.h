@@ -23,9 +23,15 @@
 #include "WorkQueue.h"
 
 // Types
+enum CLIENT_STATE
+{
+	CLIENT_NO_STATE = -1,
+	CLIENT_NOT_CONNECTED,
+	CLIENT_CONNECTED
+};
 
 // Constants
-
+static const std::string s_CommandList = "   -- Command List --\n !q - Quit Client\n !a - Get all users connected";
 
 //Forward Declaration
 class CSocket;
@@ -51,6 +57,8 @@ public:
 
 	//Qs7 : Broadcast to Detect Servers
 	bool BroadcastForServers();
+	bool WaitForHandshake();
+	void ProcessClientInput(EMessageType messageType, char* message);
 
 private:
 	// Question 7 : Broadcast to Detect Servers
@@ -67,6 +75,10 @@ private:
 	char m_cUserName[50];
 	//A workQueue to distribute messages between the main thread and Receive thread.
 	CWorkQueue<std::string>* m_pWorkQueue;
+
+	//Client state
+	CLIENT_STATE m_clientState;
+	std::mutex m_clientMutex;
 
 	//Question 7
 	//A vector to hold all the servers found after broadcasting

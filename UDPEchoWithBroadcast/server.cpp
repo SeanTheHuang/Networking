@@ -73,10 +73,10 @@ bool CServer::Initialise()
 
 bool CServer::AddClient(std::string _strClientName)
 {
-	//TO DO : Add the code to add a client to the map here...
-	
+
 	for (auto it = m_pConnectedClients->begin(); it != m_pConnectedClients->end(); ++it)
 	{
+
 		//Check to see that the client to be added does not already exist in the map, 
 		if(it->first == ToString(m_ClientAddress))
 		{
@@ -89,6 +89,12 @@ bool CServer::AddClient(std::string _strClientName)
 		}
 	}
 
+	//Tell client they have been accepted
+	TPacket _packet;
+	_packet.Serialize(HANDSHAKE, "accept");
+	SendData(_packet.PacketData);
+
+
 	//Add the client to the map.
 	TClientDetails _clientToAdd;
 	_clientToAdd.m_strName = _strClientName;
@@ -98,10 +104,9 @@ bool CServer::AddClient(std::string _strClientName)
 	m_pConnectedClients->insert(std::pair < std::string, TClientDetails > (_strAddress, _clientToAdd));
 
 	//Tell everyone a new client is coming!
-	TPacket _packet;
 	char _joinMessage[128];
-	strcpy_s(_joinMessage, (_clientToAdd.m_strName + " has joined the server!").c_str());
-	_packet.Serialize(NEW_USER, _joinMessage);
+	strcpy_s(_joinMessage, ("<< " + _clientToAdd.m_strName + " has joined the server! >>").c_str());
+	_packet.Serialize(DATA, _joinMessage);
 	SendDataToAllClients(_packet.PacketData);
 
 	return true;
@@ -188,26 +193,31 @@ unsigned short CServer::GetRemotePort()
 
 void CServer::ProcessData(char* _pcDataReceived)
 {
+	std::unique_lock<std::mutex> sendingLock(m_sendingPacketMutex); //Make sure address is consistent
+
 	TPacket _packetRecvd, _packetToSend;
 	_packetRecvd = _packetRecvd.Deserialize(_pcDataReceived);
+
+
+	//Check if messagetype not handshake + user is connected
+
 	switch (_packetRecvd.MessageType)
 	{
 	case HANDSHAKE:
 	{
 		std::cout << "Server received a handshake message " << std::endl;
-		if (AddClient(_packetRecvd.MessageContent))
+		if (!AddClient(_packetRecvd.MessageContent))
 		{
-			//Qs 3: To DO : Add the code to do a handshake here
+			_packetToSend.Serialize(HANDSHAKE, "fail"); //Inform client, handshake fail
 		}
 		break;
 	}
 	case DATA:
 	{
 		std::string name = (*m_pConnectedClients)[ToString(m_ClientAddress)].m_strName;
+		std::string message = "[" + name + "] " + _packetRecvd.MessageContent;
 
-		char dataMessage[128];
-		strcpy_s(dataMessage, (name + "> " + _packetRecvd.MessageContent).c_str());
-		_packetToSend.Serialize(DATA, dataMessage);
+		_packetToSend.Serialize(DATA, const_cast<char*>(message.c_str()));
 		SendDataToAllClients(_packetToSend.PacketData);
 
 		break;
@@ -221,7 +231,35 @@ void CServer::ProcessData(char* _pcDataReceived)
 		SendData(_packetToSend.PacketData);
 		break;
 	}
+	case SERVER_LIST:
+	{
+		std::string currentUserString = "<<Online Users>> : ";
 
+		for (auto it = m_pConnectedClients->begin(); it != m_pConnectedClients->end(); ++it)
+		{
+			currentUserString += "[" + it->second.m_strName + "] ";
+		}
+
+		_packetToSend.Serialize(DATA, const_cast<char*>(currentUserString.c_str()));
+		SendData(_packetToSend.PacketData);
+
+		break;
+	}
+	case QUIT:
+	{
+		auto it = (*m_pConnectedClients).find(ToString(m_ClientAddress));
+
+		if (it != (*m_pConnectedClients).end()) //Find and delete client from client map
+		{
+			TPacket _packet;
+			std::string message = "<< " + it->second.m_strName + " has left the server >>";
+			_packet.Serialize(DATA, const_cast<char*>(message.c_str()));
+			(*m_pConnectedClients).erase(it);
+
+			SendDataToAllClients(_packet.PacketData); //Tell all other users client has left
+		}
+
+	}
 	default:
 		break;
 
@@ -235,8 +273,6 @@ CWorkQueue<char*>* CServer::GetWorkQueue()
 
 void CServer::SendDataToAllClients(char * _pcDataToSend)
 {
-	std::unique_lock<std::mutex> sendingLock(m_sendingPacketMutex);
-
 	for (auto it = m_pConnectedClients->begin(); it != m_pConnectedClients->end(); ++it)
 	{
 		m_ClientAddress = it->second.m_ClientAddress;
