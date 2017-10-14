@@ -105,9 +105,8 @@ bool CServer::AddClient(std::string _strClientName)
 	m_pConnectedClients->insert(std::pair < std::string, TClientDetails > (_strAddress, _clientToAdd));
 
 	//Tell everyone a new client is coming!
-	char _joinMessage[128];
-	strcpy_s(_joinMessage, ("<< " + _clientToAdd.m_strName + " has joined the server! >>").c_str());
-	_packet.Serialize(DATA, _joinMessage);
+	std::string message = "<< " + _clientToAdd.m_strName + " has joined the server! >>";
+	_packet.Serialize(DATA, const_cast<char*>(message.c_str()));
 	SendDataToAllClients(_packet.PacketData);
 
 	return true;
@@ -219,6 +218,7 @@ void CServer::ProcessData(char* _pcDataReceived)
 		if (!AddClient(_packetRecvd.MessageContent))
 		{
 			_packetToSend.Serialize(HANDSHAKE, "fail"); //Inform client, handshake fail
+			SendData(_packetToSend.PacketData);
 		}
 		break;
 	}
