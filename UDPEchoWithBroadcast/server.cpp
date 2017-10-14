@@ -33,6 +33,7 @@ CServer::CServer()
 
 CServer::~CServer()
 {
+	
 	delete m_pConnectedClients;
 	m_pConnectedClients = 0;
 
@@ -44,6 +45,7 @@ CServer::~CServer()
 	
 	delete[] m_pcPacketData;
 	m_pcPacketData = 0;
+	
 }
 
 bool CServer::Initialise()

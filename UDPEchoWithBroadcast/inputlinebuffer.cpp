@@ -42,9 +42,11 @@ CInputLineBuffer::CInputLineBuffer(unsigned int uBufferSize)
 	*	*/
 CInputLineBuffer::~CInputLineBuffer()
 {
+	
 	delete[] m_pBuffer;
 	m_pBuffer = nullptr;
 	m_uBufferSize = m_uBufferPos = 0;
+	
 }
 
 	/**

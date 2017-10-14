@@ -40,8 +40,10 @@ CNetwork::CNetwork()
 
 CNetwork::~CNetwork()
 {
+	
 	delete m_pNetworkEntity;
 	m_pNetworkEntity = 0;
+	
 }
 
 bool

@@ -21,13 +21,13 @@
 enum EMessageType : unsigned char
 {
 	HANDSHAKE,
-	SERVER_LIST,
+	SERVER_LIST,	 //Client => server, asks server for a list of all users
 	DATA,
 	KEEPALIVE,
-	COMMAND,
 	BROADCAST,
-	QUIT,
-	CONNECTION_ERROR
+	QUIT,			 //Client => server, tell server user is quitting
+	CONNECTION_ERROR //Server => client, occurs when client is not connected to server but
+					 //           tries to send non-handshake/broadcast message.
 };
 
 struct TPacket 

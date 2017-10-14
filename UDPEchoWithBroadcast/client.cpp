@@ -43,6 +43,7 @@ CClient::CClient()
 
 CClient::~CClient()
 {
+	
 	delete[] m_pcPacketData;
 	m_pcPacketData = 0;
 
@@ -51,6 +52,7 @@ CClient::~CClient()
 
 	delete m_pWorkQueue;
 	m_pWorkQueue = 0;
+	
 }
 
 /***********************
@@ -182,7 +184,6 @@ bool CClient::Initialise()
 	} while (_bServerChosen == false);
 
 	//Send a hanshake message to the server as part of the Client's Initialization process.
-	//Step1: Create a handshake packet
 	TPacket _packet;
 	m_clientState = CLIENT_NO_STATE;
 
@@ -207,6 +208,9 @@ bool CClient::Initialise()
 			return false;
 		}
 	}
+
+	//Success! connected to server
+	strcpy_s(m_cUserName, 50, _cUserName); //Store username
 
 	_packet.Serialize(SERVER_LIST, "");
 	SendData(_packet.PacketData);
@@ -339,6 +343,38 @@ void CClient::ProcessClientInput(EMessageType messageType, char* message)
 	//Normal message, send to server
 	_packet.Serialize(messageType, message);
 	SendData(_packet.PacketData);
+}
+
+bool CClient::ReconnectToServer()
+{
+	TPacket _packet;
+	m_clientState = CLIENT_NO_STATE;
+
+	while (m_clientState == CLIENT_NO_STATE || m_clientState == CLIENT_CONNECT_FAIL)
+	{
+		_packet.Serialize(HANDSHAKE, m_cUserName);
+		SendData(_packet.PacketData);
+
+		WaitForHandshake(); //Function will change value of m_clientState
+
+		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
+
+		if (m_clientState == CLIENT_CONNECT_FAIL)
+		{
+			std::cout << std::endl << "Error: Username is now taken. Please enter new username." << std::endl;
+			gets_s(m_cUserName);
+		}
+		else if (m_clientState == CLIENT_TIMEOUT)
+		{
+			std::cout << std::endl << "Error: Server not responding. Exiting program...Press anything to continue..." << std::endl;
+			CNetwork::GetInstance().ShutDown();
+			m_bOnline = false;
+			return false;
+			_getch();
+		}
+	}
+
+	return true;
 }
 
 bool CClient::BroadcastForServers()
@@ -520,7 +556,15 @@ void CClient::ProcessData(char* _pcDataReceived)
 		//Client knows they are disconnected from server, try reconnect
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
 		std::cout << "<< You are not connected to the server. Attempting to reconnect. >>" << std::endl;
-		//TODO: reconnect code
+
+		if (ReconnectToServer()) //Function will reconnect to server if possible
+		{
+			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
+			std::cout << "Reconnection complete!" << std::endl;
+			TPacket _packet;
+			_packet.Serialize(SERVER_LIST, ""); //Get server list again
+			SendData(_packet.PacketData);
+		}
 		break;
 	}
 	default:

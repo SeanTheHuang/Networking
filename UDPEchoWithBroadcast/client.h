@@ -60,6 +60,7 @@ public:
 	bool BroadcastForServers();
 	bool WaitForHandshake();
 	void ProcessClientInput(EMessageType messageType, char* message);
+	bool ReconnectToServer();
 
 private:
 	// Question 7 : Broadcast to Detect Servers
