@@ -186,18 +186,25 @@ bool CClient::Initialise()
 	TPacket _packet;
 	m_clientState = CLIENT_NO_STATE;
 
-	while (m_clientState != CLIENT_CONNECTED)
+	while (m_clientState == CLIENT_NO_STATE || m_clientState == CLIENT_CONNECT_FAIL)
 	{
 		std::cout << "Please enter a username : ";
 		gets_s(_cUserName);
 		_packet.Serialize(HANDSHAKE, _cUserName); 
 		SendData(_packet.PacketData);
 
-		m_clientState = (WaitForHandshake()) ? CLIENT_CONNECTED : CLIENT_NOT_CONNECTED;
+		WaitForHandshake(); //Function will change value of m_clientState
 
-		if (m_clientState == CLIENT_NOT_CONNECTED)
+		if (m_clientState == CLIENT_CONNECT_FAIL)
 		{
 			std::cout << std::endl << "Error: Username is taken. Please choose a new username." << std::endl;
+		}
+		else if (m_clientState == CLIENT_TIMEOUT)
+		{
+			std::cout << std::endl << "Error: Server not responding. Exiting program." << std::endl;
+			CNetwork::GetInstance().ShutDown();
+			m_bOnline = false;
+			return false;
 		}
 	}
 
@@ -224,6 +231,8 @@ bool CClient::WaitForHandshake()
 	sockaddr_in _FromAddress;
 	int iSizeOfAdd = sizeof(sockaddr_in);
 	//char _pcAddress[50];
+
+	m_clientState = CLIENT_TIMEOUT; //If state does not change, time out
 
 	while (true)
 	{
@@ -261,10 +270,12 @@ bool CClient::WaitForHandshake()
 			 
 			if ((std::string)_packet.MessageContent == "accept")
 			{
+				m_clientState = CLIENT_CONNECT_PASS;
 				return true;
 			}
 			else if ((std::string)_packet.MessageContent == "fail")
 			{
+				m_clientState = CLIENT_CONNECT_FAIL;
 				return false;
 			}
 			else
@@ -494,7 +505,7 @@ void CClient::ProcessData(char* _pcDataReceived)
 	case HANDSHAKE:
 	{
 		std::unique_lock<std::mutex> sendingLock(m_clientMutex);
-		m_clientState = (_packetRecvd.MessageContent == "accept") ? CLIENT_CONNECTED : CLIENT_NOT_CONNECTED;
+		m_clientState = (_packetRecvd.MessageContent == "accept") ? CLIENT_CONNECT_PASS : CLIENT_CONNECT_FAIL;
 		break;
 	}
 	case DATA:
