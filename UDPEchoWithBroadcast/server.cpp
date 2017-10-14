@@ -98,6 +98,7 @@ bool CServer::AddClient(std::string _strClientName)
 	//Add the client to the map.
 	TClientDetails _clientToAdd;
 	_clientToAdd.m_strName = _strClientName;
+	_clientToAdd.m_bIsActive = true;
 	_clientToAdd.m_ClientAddress = this->m_ClientAddress;
 
 	std::string _strAddress = ToString(m_ClientAddress);
@@ -198,9 +199,18 @@ void CServer::ProcessData(char* _pcDataReceived)
 	TPacket _packetRecvd, _packetToSend;
 	_packetRecvd = _packetRecvd.Deserialize(_pcDataReceived);
 
+	//Check if messagetype not handshake/broadcast + user is connected
+	bool clientInMap = (*m_pConnectedClients).find(ToString(m_ClientAddress)) != (*m_pConnectedClients).end();
+	bool typeToCheck = _packetRecvd.MessageType != BROADCAST && _packetRecvd.MessageType != HANDSHAKE;
 
-	//Check if messagetype not handshake + user is connected
-
+	if (typeToCheck && !clientInMap)
+	{
+		//Message is invalid
+		TPacket _packet;
+		_packet.Serialize(CONNECTION_ERROR, ""); //Inform client they are not in map
+		return;
+	}
+	
 	switch (_packetRecvd.MessageType)
 	{
 	case HANDSHAKE:

@@ -35,7 +35,7 @@ class CSocket;
 struct TClientDetails
 {
 	sockaddr_in m_ClientAddress;
-	//bool m_bIsActive;
+	bool m_bIsActive;
 	std::string m_strName;
 	//time_t m_timeOfLastMessage;
 };

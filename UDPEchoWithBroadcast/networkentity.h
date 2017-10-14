@@ -26,7 +26,8 @@ enum EMessageType : unsigned char
 	KEEPALIVE,
 	COMMAND,
 	BROADCAST,
-	QUIT
+	QUIT,
+	CONNECTION_ERROR
 };
 
 struct TPacket 

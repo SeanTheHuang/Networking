@@ -504,6 +504,14 @@ void CClient::ProcessData(char* _pcDataReceived)
 		std::cout << _packetRecvd.MessageContent << std::endl;
 		break;
 	}
+	case CONNECTION_ERROR:
+	{
+		//Client knows they are disconnected from server, try reconnect
+		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
+		std::cout << "<< You are not connected to the server. Attempting to reconnect. >>" << std::endl;
+		//TODO: reconnect code
+		break;
+	}
 	default:
 		break;
 
