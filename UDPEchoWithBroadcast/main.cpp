@@ -160,12 +160,14 @@ int main()
 
 	} //End of while network is Online
 
-	_ClientReceiveThread.join();
-	_ServerReceiveThread.join();
+	if (_eNetworkEntityType == CLIENT)
+		_ClientReceiveThread.join();
+	else
+		_ServerReceiveThread.join();
 
 	//Shut Down the Network
-	//_rNetwork.DestroyInstance();
-	//delete[] _pcPacketData;
+	_rNetwork.DestroyInstance();
+	delete[] _pcPacketData;
 
 	return 0;
 }
