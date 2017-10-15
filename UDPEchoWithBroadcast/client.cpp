@@ -349,31 +349,51 @@ bool CClient::ReconnectToServer()
 {
 	TPacket _packet;
 	m_clientState = CLIENT_NO_STATE;
+	SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
+
+	auto startTime = std::chrono::system_clock::now();
+	double handShakeWaitPeriod = 5.0;
+
+	_packet.Serialize(HANDSHAKE, m_cUserName);
+	SendData(_packet.PacketData);
 
 	while (m_clientState == CLIENT_NO_STATE || m_clientState == CLIENT_CONNECT_FAIL)
 	{
-		_packet.Serialize(HANDSHAKE, m_cUserName);
-		SendData(_packet.PacketData);
+		//Keep processing data while waiting
+		if (!m_pWorkQueue->empty())
+		{
+			std::string temp;
+			m_pWorkQueue->pop(temp);
+			ProcessData(const_cast<char*>(temp.c_str()));
+		}
 
-		WaitForHandshake(); //Function will change value of m_clientState
+		auto endTime = std::chrono::system_clock::now();
+		std::chrono::duration<double> elapsedTime = endTime - startTime;
 
-		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
+		if (elapsedTime.count() >= handShakeWaitPeriod)
+		{
+			m_clientState = CLIENT_TIMEOUT;
+		}
 
+		
+		//Wait for state to change (getting packets from ProcessData)
 		if (m_clientState == CLIENT_CONNECT_FAIL)
 		{
 			std::cout << std::endl << "Error: Username is now taken. Please enter new username." << std::endl;
 			gets_s(m_cUserName);
+			_packet.Serialize(HANDSHAKE, m_cUserName);
+			SendData(_packet.PacketData);
 		}
 		else if (m_clientState == CLIENT_TIMEOUT)
 		{
 			std::cout << std::endl << "Error: Server not responding. Exiting program...Press anything to continue..." << std::endl;
 			CNetwork::GetInstance().ShutDown();
 			m_bOnline = false;
-			return false;
 			_getch();
+			return false;
 		}
 	}
-
+	//Successfully reconnect
 	return true;
 }
 
@@ -541,7 +561,7 @@ void CClient::ProcessData(char* _pcDataReceived)
 	case HANDSHAKE:
 	{
 		std::unique_lock<std::mutex> sendingLock(m_clientMutex);
-		m_clientState = (_packetRecvd.MessageContent == "accept") ? CLIENT_CONNECT_PASS : CLIENT_CONNECT_FAIL;
+		m_clientState = ((std::string)_packetRecvd.MessageContent == "accept") ? CLIENT_CONNECT_PASS : CLIENT_CONNECT_FAIL;
 		break;
 	}
 	case DATA:
@@ -560,11 +580,18 @@ void CClient::ProcessData(char* _pcDataReceived)
 		if (ReconnectToServer()) //Function will reconnect to server if possible
 		{
 			SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 10);
-			std::cout << "Reconnection complete!" << std::endl;
+			std::cout << "   [ Reconnection complete! ]" << std::endl;
 			TPacket _packet;
 			_packet.Serialize(SERVER_LIST, ""); //Get server list again
 			SendData(_packet.PacketData);
 		}
+		break;
+	}
+	case KEEPALIVE:
+	{
+		TPacket _packet;
+		_packet.Serialize(KEEPALIVE, _packetRecvd.MessageContent);
+		SendData(_packet.PacketData);
 		break;
 	}
 	default:

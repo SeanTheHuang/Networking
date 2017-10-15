@@ -18,15 +18,22 @@
 // Library Includes
 #include <Windows.h>
 #include <map>
-#include <time.h>
+
 
 // Local Includes
 #include "networkentity.h"
 #include "WorkQueue.h"
 
 // Types
+enum KEEP_ALIVE_STATES
+{
+	WAITING_NEXT_KEEP_ALIVE,
+	WAITING_CLIENT_REPLY
+};
 
 // Constants
+#define TIME_BETWEEN_KEEP_ALIVE_MESSAGES 5
+#define TIME_WAIT_FOR_KEEP_ALIVE_MESSAGE 1
 
 //Forward Declaration
 class CSocket;
@@ -58,6 +65,7 @@ public:
 	CWorkQueue<char*>* GetWorkQueue();
 
 	void SendDataToAllClients(char* _pcDataToSend);
+	void KeepAliveLogic();
 
 private:
 	bool AddClient(std::string _strClientName);
@@ -81,6 +89,10 @@ private:
 	CWorkQueue<char*>* m_pWorkQueue;
 
 	std::mutex m_sendingPacketMutex;
+	std::mutex m_recievingMutex;
+
+	std::chrono::time_point<std::chrono::system_clock> m_lastKeepAliveTime;
+	KEEP_ALIVE_STATES m_keepAliveState;
 };
 
 #endif

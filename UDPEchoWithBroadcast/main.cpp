@@ -139,6 +139,7 @@ int main()
 		}
 		else //if you are running a server instance
 		{
+			_pServer->KeepAliveLogic();
 
 			if (_pServer != nullptr)
 			{

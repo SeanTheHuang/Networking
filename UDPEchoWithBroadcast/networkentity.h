@@ -17,6 +17,7 @@
 
 #include <string>
 #include <sstream>
+#include <chrono>
 
 enum EMessageType : unsigned char
 {

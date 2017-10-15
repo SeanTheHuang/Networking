@@ -50,6 +50,10 @@ CServer::~CServer()
 
 bool CServer::Initialise()
 {
+	//Set up first time to call keep alive messages
+	m_lastKeepAliveTime = std::chrono::system_clock::now();
+	m_keepAliveState = WAITING_NEXT_KEEP_ALIVE;
+
 	m_pcPacketData = new char[MAX_MESSAGE_LENGTH];
 	
 	//Create a work queue to distribute messages between the main  thread and the receive thread.
@@ -137,7 +141,8 @@ bool CServer::SendData(char* _pcDataToSend)
 
 void CServer::ReceiveData(char* _pcBufferToReceiveData)
 {
-	
+	std::unique_lock<std::mutex> sendingLock(m_recievingMutex);
+
 	int iSizeOfAdd = sizeof(m_ClientAddress);
 	int _iNumOfBytesReceived;
 	int _iPacketSize;
@@ -200,6 +205,9 @@ void CServer::ProcessData(char* _pcDataReceived)
 	TPacket _packetRecvd, _packetToSend;
 	_packetRecvd = _packetRecvd.Deserialize(_pcDataReceived);
 
+	std::string stuff = (std::string)_packetRecvd.MessageContent;
+	std::cout << "[MESSAGE CONTENT DURING PROCESSING]: " + stuff << std::endl;
+
 	//Check if messagetype not handshake/broadcast + user is connected
 	bool clientInMap = (*m_pConnectedClients).find(ToString(m_ClientAddress)) != (*m_pConnectedClients).end();
 	bool typeToCheck = _packetRecvd.MessageType != BROADCAST && _packetRecvd.MessageType != HANDSHAKE;
@@ -209,6 +217,7 @@ void CServer::ProcessData(char* _pcDataReceived)
 		//Message is invalid
 		TPacket _packet;
 		_packet.Serialize(CONNECTION_ERROR, ""); //Inform client they are not in map
+		SendData(_packet.PacketData);
 		return;
 	}
 	
@@ -272,6 +281,11 @@ void CServer::ProcessData(char* _pcDataReceived)
 		}
 
 	}
+	case KEEPALIVE:
+	{
+		(*m_pConnectedClients)[ToString(_packetRecvd.MessageContent)].m_bIsActive = true;
+		break;
+	}
 	default:
 		break;
 
@@ -290,4 +304,80 @@ void CServer::SendDataToAllClients(char * _pcDataToSend)
 		m_ClientAddress = it->second.m_ClientAddress;
 		SendData(_pcDataToSend);
 	}
+}
+
+void CServer::KeepAliveLogic()
+{
+	std::chrono::time_point<std::chrono::system_clock> currentTime = std::chrono::system_clock::now();
+
+	std::chrono::duration<double> elapsedTime = currentTime - m_lastKeepAliveTime;
+
+	switch (m_keepAliveState)
+	{
+	case WAITING_NEXT_KEEP_ALIVE:
+	{
+		if (elapsedTime.count() > TIME_BETWEEN_KEEP_ALIVE_MESSAGES)
+		{
+			std::cout << "Sending out keep alive messages" << std::endl;
+
+			//Make sure address is consistent
+			std::unique_lock<std::mutex> sendingLock(m_sendingPacketMutex);
+
+			TPacket _packet;
+
+			//Time for keep alive checkup
+			for (auto it = m_pConnectedClients->begin(); it != m_pConnectedClients->end(); ++it)
+			{
+				_packet.Serialize(KEEPALIVE, const_cast<char*>(ToString(it->second.m_ClientAddress).c_str()));
+				it->second.m_bIsActive = false;
+				m_ClientAddress = it->second.m_ClientAddress;
+				SendData(_packet.PacketData);
+			}
+
+			m_keepAliveState = WAITING_CLIENT_REPLY;
+			m_lastKeepAliveTime = currentTime; //Set for next check up time
+		}
+		break;
+	}
+	case WAITING_CLIENT_REPLY:
+	{
+		if (elapsedTime.count() > TIME_WAIT_FOR_KEEP_ALIVE_MESSAGE)
+		{
+			std::cout << "Checking replies to get alive messages" << std::endl;
+
+			//Use mutex so editing client map does not affect rest of program
+			std::unique_lock<std::mutex> sendingLock(m_sendingPacketMutex);
+
+			std::vector<std::map<std::string, TClientDetails>::iterator> itToDelete;
+
+			//Time to check people who replied. No reply = die
+			for (auto it = m_pConnectedClients->begin(); it != m_pConnectedClients->end(); ++it)
+			{
+				if (it->second.m_bIsActive == false) //No reply from client
+				{
+					itToDelete.push_back(it);
+				}
+			}
+
+			//delete all who didn't reply
+			for (size_t i = 0; i < itToDelete.size(); i++)
+			{
+				//Tell all living users a user disconnected
+				std::string message = "<< " + itToDelete[i]->second.m_strName + " has left the server >>";
+				TPacket _packet;
+				_packet.Serialize(DATA, const_cast<char*>(message.c_str()));
+				(*m_pConnectedClients).erase(itToDelete[i]); //delete
+
+				SendDataToAllClients(_packet.PacketData);
+			}
+
+
+
+			m_keepAliveState = WAITING_NEXT_KEEP_ALIVE;
+			m_lastKeepAliveTime = currentTime; //Set for next check up time
+		}
+		break;
+	}
+	}
+
 }
