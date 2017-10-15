@@ -62,7 +62,7 @@ public:
 	virtual void GetRemoteIPAddress(char* _pcSendersIP);
 	virtual unsigned short GetRemotePort();
 
-	CWorkQueue<char*>* GetWorkQueue();
+	CWorkQueue<std::string>* GetWorkQueue();
 
 	void SendDataToAllClients(char* _pcDataToSend);
 	void KeepAliveLogic();
@@ -86,7 +86,7 @@ private:
 	std::map<std::string, TClientDetails>* m_pConnectedClients;
 
 	//A workQueue to distribute messages between the main thread and Receive thread.
-	CWorkQueue<char*>* m_pWorkQueue;
+	CWorkQueue<std::string>* m_pWorkQueue;
 
 	std::mutex m_sendingPacketMutex;
 

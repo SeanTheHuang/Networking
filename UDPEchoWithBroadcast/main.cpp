@@ -150,8 +150,9 @@ int main()
 					//<< ":" << _rNetwork.GetInstance().GetNetworkEntity()->GetRemotePort() << "> " << _pcPacketData << std::endl;
 
 					//Retrieve off a message from the queue and process it
-					_pServer->GetWorkQueue()->pop(_pcPacketData);
-					_pServer->ProcessData(_pcPacketData);
+					std::string temp;
+					_pServer->GetWorkQueue()->pop(temp);
+					_pServer->ProcessData(const_cast<char*>(temp.c_str()));
 				}
 			}
 		}

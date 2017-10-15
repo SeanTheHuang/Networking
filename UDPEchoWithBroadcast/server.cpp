@@ -57,7 +57,7 @@ bool CServer::Initialise()
 	m_pcPacketData = new char[MAX_MESSAGE_LENGTH];
 	
 	//Create a work queue to distribute messages between the main  thread and the receive thread.
-	m_pWorkQueue = new CWorkQueue<char*>();
+	m_pWorkQueue = new CWorkQueue<std::string>();
 
 	//Create a socket object
 	m_pServerSocket = new CSocket();
@@ -291,7 +291,7 @@ void CServer::ProcessData(char* _pcDataReceived)
 	}
 }
 
-CWorkQueue<char*>* CServer::GetWorkQueue()
+CWorkQueue<std::string>* CServer::GetWorkQueue()
 {
 	return m_pWorkQueue;
 }
