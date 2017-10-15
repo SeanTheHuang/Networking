@@ -141,7 +141,6 @@ bool CServer::SendData(char* _pcDataToSend)
 
 void CServer::ReceiveData(char* _pcBufferToReceiveData)
 {
-	std::unique_lock<std::mutex> sendingLock(m_recievingMutex);
 
 	int iSizeOfAdd = sizeof(m_ClientAddress);
 	int _iNumOfBytesReceived;

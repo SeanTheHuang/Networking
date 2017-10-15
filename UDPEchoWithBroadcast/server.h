@@ -89,7 +89,6 @@ private:
 	CWorkQueue<char*>* m_pWorkQueue;
 
 	std::mutex m_sendingPacketMutex;
-	std::mutex m_recievingMutex;
 
 	std::chrono::time_point<std::chrono::system_clock> m_lastKeepAliveTime;
 	KEEP_ALIVE_STATES m_keepAliveState;
